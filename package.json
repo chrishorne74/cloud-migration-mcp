@@ -1,0 +1,24 @@
+{
+  "name": "cloud-migration-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for cloud migration assessment, 7Rs strategy, guardrails, candidate scoring, wave planning, and draw.io architecture diagrams",
+  "type": "module",
+  "bin": {
+    "cloud-migration-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:mcpb": "npm run build && node scripts/build-mcpb.js",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

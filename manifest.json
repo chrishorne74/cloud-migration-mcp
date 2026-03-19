@@ -1,0 +1,116 @@
+{
+  "manifest_version": "1.0",
+  "name": "cloud-migration",
+  "display_name": "Cloud Migration",
+  "version": "1.0.0",
+  "description": "Assess workloads, recommend 7R migration strategies, enforce guardrails, score migration candidates, plan migration waves, estimate costs, and generate draw.io architecture diagrams for cloud migration programmes.",
+  "author": {
+    "name": "Cloud Migration Tools"
+  },
+  "license": "MIT",
+  "keywords": ["cloud", "migration", "aws", "azure", "gcp", "7rs", "rehost", "replatform", "refactor", "guardrails", "assessment", "diagram", "drawio", "wave-planning"],
+  "server": {
+    "type": "node",
+    "entry_point": "build/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/build/index.js"],
+      "env": {
+        "GUARDRAILS_FILE": "${__dirname}/guardrails/migration-guardrails.md",
+        "CRITERIA_FILE": "${__dirname}/criteria/migration-criteria.json",
+        "USER_GUARDRAILS_FILE": "${user_config.guardrails_file}",
+        "USER_CRITERIA_FILE": "${user_config.criteria_file}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "list_migration_guardrails",
+      "description": "List all migration guardrails by category and severity"
+    },
+    {
+      "name": "add_migration_guardrail",
+      "description": "Add a new organisation-specific migration guardrail"
+    },
+    {
+      "name": "update_migration_guardrail",
+      "description": "Update an existing migration guardrail's severity or text"
+    },
+    {
+      "name": "delete_migration_guardrail",
+      "description": "Delete a migration guardrail by ID"
+    },
+    {
+      "name": "reload_migration_guardrails",
+      "description": "Reload guardrails from file after manual edits"
+    },
+    {
+      "name": "assess_workload",
+      "description": "Full migration assessment: score, readiness, 7R strategy, guardrail violations, effort and risk"
+    },
+    {
+      "name": "score_migration_candidates",
+      "description": "Score and rank multiple workloads as cloud migration candidates"
+    },
+    {
+      "name": "check_migration_guardrails",
+      "description": "Run automated guardrail checks against a workload"
+    },
+    {
+      "name": "list_migration_criteria",
+      "description": "List scoring criteria used to assess migration candidates"
+    },
+    {
+      "name": "add_migration_criterion",
+      "description": "Add a custom scoring criterion"
+    },
+    {
+      "name": "update_migration_criterion",
+      "description": "Update weight or direction of an existing criterion"
+    },
+    {
+      "name": "list_migration_strategies",
+      "description": "Describe all 7 cloud migration strategies (the 7 Rs) with indicators and exclusions"
+    },
+    {
+      "name": "recommend_migration_strategy",
+      "description": "Recommend one of the 7 Rs for a workload based on its attributes"
+    },
+    {
+      "name": "estimate_migration_cost",
+      "description": "ROM cost estimate: cloud annual cost, migration one-time cost, 1/3-year savings, ROI break-even"
+    },
+    {
+      "name": "create_migration_wave_plan",
+      "description": "Group workloads into sequenced migration waves respecting dependencies and scores"
+    },
+    {
+      "name": "generate_migration_diagram",
+      "description": "Generate a draw.io XML migration architecture diagram with native cloud shapes"
+    },
+    {
+      "name": "generate_assessment_diagram",
+      "description": "Assess a workload and generate a draw.io migration diagram in one step"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "user_config": {
+    "guardrails_file": {
+      "type": "file",
+      "title": "Custom Guardrails File",
+      "description": "Optional: path to your own migration guardrails Markdown file. Leave empty to use the built-in guardrails.",
+      "required": false
+    },
+    "criteria_file": {
+      "type": "file",
+      "title": "Custom Criteria File",
+      "description": "Optional: path to your own migration-criteria.json scoring file. Leave empty to use the built-in criteria.",
+      "required": false
+    }
+  }
+}

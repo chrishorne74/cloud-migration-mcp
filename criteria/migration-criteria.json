@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "description": "Industry-standard cloud migration candidate scoring criteria. Higher overall score = better migration candidate. Edit this file and run reload_migration_criteria to apply changes.",
+  "criteria": [
+    {
+      "id": "CRIT-001",
+      "name": "Business Criticality",
+      "description": "How critical is this application to business operations? Higher criticality workloads often need careful wave placement — not necessarily early (more risk) or late (more cost). Score is inverted for wave sequencing: start with lower criticality.",
+      "weight": 8,
+      "direction": "lower-is-better",
+      "workloadAttribute": "businessCriticality",
+      "bands": [
+        { "max": 1, "score": 100, "label": "Non-critical / decommission candidate" },
+        { "max": 2, "score": 80,  "label": "Low criticality / supporting" },
+        { "max": 3, "score": 60,  "label": "Moderate criticality / departmental" },
+        { "max": 4, "score": 30,  "label": "High criticality / business-important" },
+        { "max": 5, "score": 10,  "label": "Mission critical / revenue-generating" }
+      ]
+    },
+    {
+      "id": "CRIT-002",
+      "name": "Technical Complexity",
+      "description": "How complex is the application technically? Assessed from dependency count, age, technology stack, and OS support status. Lower complexity = better early candidate.",
+      "weight": 9,
+      "direction": "lower-is-better",
+      "workloadAttribute": "dependencyCount",
+      "bands": [
+        { "max": 2,   "score": 100, "label": "Minimal dependencies — excellent candidate" },
+        { "max": 5,   "score": 80,  "label": "Low dependency count — good candidate" },
+        { "max": 10,  "score": 55,  "label": "Moderate dependencies — manageable" },
+        { "max": 20,  "score": 30,  "label": "High dependency count — complex" },
+        { "max": 999, "score": 10,  "label": "Very high dependencies — defer or refactor first" }
+      ]
+    },
+    {
+      "id": "CRIT-003",
+      "name": "Vendor Support Status",
+      "description": "Is the application on a vendor-supported platform? End-of-life or unsupported platforms are strong migration drivers but also increase technical risk.",
+      "weight": 7,
+      "direction": "higher-is-better",
+      "workloadAttribute": "vendorSupportActive",
+      "notes": "Boolean: true = supported (score 60), false = EOL (score 100 — strong migration driver)"
+    },
+    {
+      "id": "CRIT-004",
+      "name": "Cloud Readiness",
+      "description": "How ready is the application for cloud deployment? Considers whether source code is available, containerisation feasibility, and modern runtime.",
+      "weight": 9,
+      "direction": "higher-is-better",
+      "workloadAttribute": "sourceCodeAvailable",
+      "notes": "Boolean: true = source available (score 80), false = binary-only (score 30)"
+    },
+    {
+      "id": "CRIT-005",
+      "name": "Current Infrastructure Cost",
+      "description": "Annual on-premises or hosted cost in USD. Higher cost = stronger business case for migration.",
+      "weight": 7,
+      "direction": "higher-is-better",
+      "workloadAttribute": "annualCostUsd",
+      "bands": [
+        { "max": 10000,  "score": 20,  "label": "< $10k/yr — low savings potential" },
+        { "max": 50000,  "score": 40,  "label": "$10k–$50k/yr — moderate savings potential" },
+        { "max": 200000, "score": 65,  "label": "$50k–$200k/yr — good savings potential" },
+        { "max": 500000, "score": 85,  "label": "$200k–$500k/yr — strong business case" },
+        { "max": 999999999, "score": 100, "label": "> $500k/yr — compelling business case" }
+      ]
+    },
+    {
+      "id": "CRIT-006",
+      "name": "Application Age",
+      "description": "Age of the application in years. Older applications may have higher technical debt but also stronger decommission motivation.",
+      "weight": 5,
+      "direction": "higher-is-better",
+      "workloadAttribute": "ageYears",
+      "bands": [
+        { "max": 2,   "score": 30,  "label": "< 2 years — recently built, may not need migration" },
+        { "max": 5,   "score": 50,  "label": "2–5 years — reasonable candidate" },
+        { "max": 10,  "score": 70,  "label": "5–10 years — good migration driver" },
+        { "max": 15,  "score": 85,  "label": "10–15 years — high migration urgency" },
+        { "max": 999, "score": 100, "label": "> 15 years — legacy, strong driver" }
+      ]
+    },
+    {
+      "id": "CRIT-007",
+      "name": "SaaS Alternative Availability",
+      "description": "Is there a viable SaaS replacement? Presence of SaaS alternative enables Repurchase strategy with potentially lower migration effort.",
+      "weight": 6,
+      "direction": "higher-is-better",
+      "workloadAttribute": "saasAlternativeExists",
+      "notes": "Boolean: true = SaaS exists (score 90), false = no SaaS (score 50)"
+    },
+    {
+      "id": "CRIT-008",
+      "name": "Data Sensitivity",
+      "description": "Data classification affects migration complexity. Lower sensitivity = easier migration. High sensitivity adds controls overhead.",
+      "weight": 6,
+      "direction": "lower-is-better",
+      "workloadAttribute": "dataClassification",
+      "notes": "Categorical: public=100, internal=75, confidential=40, restricted=15"
+    },
+    {
+      "id": "CRIT-009",
+      "name": "Documentation Quality",
+      "description": "Well-documented applications are easier to migrate with confidence. Poor documentation increases discovery effort and risk.",
+      "weight": 5,
+      "direction": "higher-is-better",
+      "workloadAttribute": "documentationLevel",
+      "notes": "Categorical: high=90, medium=60, low=25"
+    },
+    {
+      "id": "CRIT-010",
+      "name": "Compliance Overhead",
+      "description": "Number of regulatory compliance requirements (PCI-DSS, HIPAA, GDPR, etc.). More requirements add migration complexity and controls overhead.",
+      "weight": 7,
+      "direction": "lower-is-better",
+      "workloadAttribute": "complianceRequirements",
+      "notes": "Array length: 0=100, 1=75, 2=50, 3+=20"
+    }
+  ]
+}
