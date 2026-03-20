@@ -95,6 +95,34 @@
     {
       "name": "identify_red_flags",
       "description": "Triage a workload for migration red flags (BLOCKER/HIGH/MEDIUM/WARNING) using AWS MAP, Azure CAF, GCP, Gartner, IBM, DXC, TCS, BMC criteria. Returns overall migration verdict."
+    },
+    {
+      "name": "assess_containerisation_fitness",
+      "description": "Score containerisation readiness using 12-factor principles. Returns platform recommendation (EKS/AKS/GKE, ECS/Cloud Run, Windows Containers, or Not Suitable) and remediation list."
+    },
+    {
+      "name": "assess_database_migration",
+      "description": "Assess database migration path (homogeneous vs heterogeneous), recommend target engine and tools, select downtime model (CDC/cutover), and identify database-specific risks."
+    },
+    {
+      "name": "generate_migration_runbook",
+      "description": "Generate a structured cutover runbook with pre-flight checklist, strategy-specific cutover steps, rollback procedure, and 14-day hypercare plan."
+    },
+    {
+      "name": "assess_network_readiness",
+      "description": "Assess cloud network readiness: landing zone, connectivity method (Direct Connect/ExpressRoute/VPN), DNS strategy, firewall rule complexity, private endpoints, and latency SLA compatibility."
+    },
+    {
+      "name": "generate_portfolio_report",
+      "description": "Assess and summarise an entire application portfolio: readiness breakdown, strategy distribution, score heatmap, top blockers, cost estimate, wave count and programme duration."
+    },
+    {
+      "name": "estimate_carbon_impact",
+      "description": "Estimate CO2 reduction from migrating on-premises servers to cloud. Compares on-prem and cloud annual kWh and CO2 kg using IEA 2023, Uptime Institute, and cloud provider sustainability data."
+    },
+    {
+      "name": "assess_vmware_estate",
+      "description": "Assess VMware estate migration strategy: Relocate (VMC/AVS/GCVE via HCX), Rehost to native IaaS, Replatform off VMware, or Retain. Considers vSphere version, vSAN, NSX-T, certified apps."
     }
   ],
   "compatibility": {

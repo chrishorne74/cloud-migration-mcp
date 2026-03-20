@@ -471,6 +471,62 @@ Recommendation: Assess database version support status during discovery. For EOL
 
 ---
 
+## Container
+
+<!-- MG-CON-001 | HIGH -->
+**Applications with local filesystem persistent state cannot be containerised without remediation**
+Containers are ephemeral — any data written to the local container filesystem is lost on restart, scale-out, or rescheduling. Applications writing session state, user files, or operational data to local disk will experience silent data loss in containerised environments.
+This is the most commonly discovered container blocker in lift-and-shift containerisation projects.
+Recommendation: Identify all local filesystem write operations during container readiness assessment. Externalise persistent state to managed storage: S3/Azure Blob/GCS for files, ElastiCache/Redis for session state, managed database for structured data. Treat as a mandatory pre-containerisation remediation item. Source: GCP containerisation fit assessment; AWS Well-Architected Framework; CNCF Cloud Native Trail Map.
+
+<!-- MG-CON-002 | HIGH -->
+**Applications requiring privileged mode containers present critical security risk in shared Kubernetes clusters**
+Privileged containers have full access to the host kernel and can escape container isolation, escalating to full node compromise. Kubernetes Pod Security Standards Restricted profile explicitly prohibits privileged containers.
+Running privileged containers in shared clusters violates CIS Kubernetes Benchmark and most enterprise security policies.
+Recommendation: Investigate why privileged mode is required and refactor using Linux capabilities where possible. If genuinely required, isolate to dedicated nodes with strict access controls. Document as a security risk if deployed. Source: CIS Docker Benchmark; Kubernetes Pod Security Standards; NIST SP 800-190.
+
+<!-- MG-CON-003 | HIGH -->
+**Container images must not run as root — required by CIS Docker Benchmark and Kubernetes Pod Security Standards**
+Containers running as root (UID 0) expose the host to privilege escalation if a container escape vulnerability is exploited. Many base images (ubuntu, debian, node) default to root unless explicitly overridden — this is the most common container security misconfiguration.
+Recommendation: Add a USER instruction to all Dockerfiles specifying a non-root UID (e.g. USER 1001). Scan all images using Trivy, Anchore, or AWS Inspector. Enforce via Kubernetes admission controller (OPA Gatekeeper, Kyverno) or Azure Policy for AKS. Source: CIS Docker Benchmark v1.6; Kubernetes Pod Security Standards; NIST SP 800-190.
+
+<!-- MG-CON-004 | HIGH -->
+**Container images must be scanned for vulnerabilities before production deployment**
+Unscanned container images are a leading attack vector. Images built on unpatched base images frequently carry critical CVEs that are trivially exploitable. A container image scanning pipeline is a mandatory control for production container workloads.
+Recommendation: Integrate image scanning into the CI/CD pipeline using Trivy, AWS ECR Enhanced Scanning, Azure Defender for Container Registries, or GCP Artifact Registry scanning. Block deployment of images with CRITICAL/HIGH severity CVEs without exception approval. Scan base images weekly even if application code has not changed. Source: NIST SP 800-190; CIS Docker Benchmark; AWS/Azure/GCP container security guidance.
+
+<!-- MG-CON-005 | HIGH -->
+**Secrets must not be stored in container environment variables or baked into container images**
+Environment variables are visible to all container processes and written to orchestration logs. Image layers are permanently inspectable — any secret baked in is permanently exposed in image history. This is a CWE-200 violation and OWASP A02:2021 finding.
+Recommendation: Use a secrets manager for all sensitive configuration: AWS Secrets Manager, Azure Key Vault, GCP Secret Manager, or HashiCorp Vault. Inject secrets as mounted volumes via External Secrets Operator or AWS Secrets Store CSI Driver. Scan Dockerfiles and manifests for hardcoded credentials using git-secrets or gitleaks. Source: CIS Docker Benchmark Section 4.6; AWS/Azure/GCP secrets management best practices.
+
+<!-- MG-CON-006 | MEDIUM -->
+**Container images must not use 'latest' tag in production — use immutable digest or version-pinned references**
+The 'latest' tag is mutable — pulling 'latest' at different times may retrieve different image versions, breaking reproducibility and auditability. Production containers must use immutable image references.
+Recommendation: Enforce immutable image tags in the container registry (ECR Immutable Tags, ACR Content Trust, Artifact Registry tag policies). Use digest references (sha256:...) or version-pinned tags in all Kubernetes manifests and ECS task definitions. Fail CI/CD pipelines that deploy 'latest'. Source: Google Cloud Build best practices; CNCF Supply Chain Security White Paper.
+
+<!-- MG-CON-007 | MEDIUM -->
+**All containerised workloads must implement liveness and readiness probes in Kubernetes**
+Without probes, Kubernetes cannot detect unhealthy containers or remove them from the service endpoint pool. Failed containers without probes will receive traffic until manually detected and hung containers will not restart automatically.
+Recommendation: Define livenessProbe and readinessProbe for every container in all Kubernetes manifests. Use HTTP GET probes against /health (liveness) and /ready (readiness) endpoints. Set appropriate initialDelaySeconds and periodSeconds for application startup time. Source: Kubernetes Production Best Practices; AWS EKS Best Practices Guide; Azure AKS baseline architecture.
+
+<!-- MG-CON-008 | MEDIUM -->
+**Windows containers carry significant image size, licensing, and operational overhead — require explicit justification**
+Windows Server Core base images are ~4 GB vs <20 MB for Linux distroless equivalents. Windows containers require Windows Server licensing for node pools. Windows containers are only warranted for COM/DCOM, .NET Framework, and Windows Registry-dependent applications.
+Recommendation: Use Windows containers only where technically required. Migrate .NET Framework applications to .NET (Core/5+) to unlock Linux container support. Document Windows-specific base image choice and licensing cost in the architecture decision record. Source: Microsoft Windows Containers documentation; AWS ECS Windows containers; AKS Windows node pools.
+
+<!-- MG-CON-009 | MEDIUM -->
+**Container resource requests and limits must be defined — unbounded containers cause node pressure and evictions**
+Kubernetes containers without resource requests and limits can consume unbounded CPU and memory, causing resource starvation for co-located pods. This is the most common cause of Kubernetes node pressure evictions in production.
+Recommendation: Define CPU requests and memory requests/limits for every container. Use VPA in recommendation mode to baseline resource requirements from observed usage. Set LimitRange objects in namespaces to enforce defaults. Source: Kubernetes Resource Management documentation; AWS EKS Best Practices; Azure AKS resource management guidance.
+
+<!-- MG-CON-010 | LOW -->
+**Container images should use distroless or minimal base images to reduce attack surface and CVE exposure**
+Large base images (ubuntu, debian, centos) include package managers, shells, and utilities not required at runtime, expanding the attack surface. Distroless images reduce CVE exposure by 60–90% compared to full OS base images.
+Recommendation: Use distroless base images (gcr.io/distroless, cgr.dev/chainguard) or Alpine as the final stage in multi-stage Dockerfile builds. Reserve full OS base images for the build stage only. Source: Google Distroless project; CIS Docker Benchmark Section 4.3; Snyk Container Security Report 2023.
+
+---
+
 ## Custom
 
 <!-- Add your organisation-specific guardrails below using the same format -->

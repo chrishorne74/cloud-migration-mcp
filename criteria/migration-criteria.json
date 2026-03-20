@@ -187,6 +187,15 @@
       "direction": "higher-is-better",
       "workloadAttribute": "cloudLicensingConfirmed",
       "notes": "Boolean: true=90 (licensing confirmed), false=20 (unconfirmed — do not migrate until resolved)"
+    },
+    {
+      "id": "CRIT-017",
+      "name": "Container Readiness (12-Factor Compliance)",
+      "description": "How ready is the application for containerisation? Assessed against 12-factor app principles: stateless processes, config via environment variables, no local filesystem state, health check endpoint, structured logging, and non-root execution. Directly determines Replatform (containerise) vs Rehost (IaaS VM) strategy eligibility. Source: 12factor.net; CIS Docker Benchmark; CNCF; AWS ECS/EKS best practices; Azure AKS baseline architecture.",
+      "weight": 7,
+      "direction": "higher-is-better",
+      "workloadAttribute": "isStateless",
+      "notes": "Composite: isStateless=true (+30), configViaEnvVars=true (+20), hasHealthCheckEndpoint=true (+15), hasStructuredLogging=true (+15), runsAsNonRootUser=true (+10), hasDockerfile=true (+10). Max 100. isAlreadyContainerised=true sets score to 85. hasPhysicalHardwareDependency=true or requiresPrivilegedMode=true sets score to 0."
     }
   ]
 }
