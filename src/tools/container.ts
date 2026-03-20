@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WorkloadInput } from "../types/index.js";
 import { assessContainerFitness } from "../lib/container-fitness.js";
+import { loadCriteria } from "../lib/scoring.js";
+import { getCriteriaPath } from "./assessment.js";
 
 const ContainerWorkloadSchema = z.object({
   name: z.string().describe("Workload / application name"),
@@ -39,7 +41,12 @@ export function registerContainerTools(server: McpServer): void {
       "Use before assigning a Replatform strategy or planning a containerisation workstream.",
     { workload: ContainerWorkloadSchema },
     async ({ workload }) => {
-      const report = assessContainerFitness(workload as WorkloadInput);
+      const criteriaDoc = loadCriteria(getCriteriaPath());
+      const weightsMap: Record<string, number> = {};
+      for (const c of criteriaDoc.criteria) {
+        if (c.id.startsWith("CON-")) weightsMap[c.id] = c.weight;
+      }
+      const report = assessContainerFitness(workload as WorkloadInput, weightsMap);
 
       const levelEmoji =
         report.fitnessLevel === "Excellent" ? "✅"

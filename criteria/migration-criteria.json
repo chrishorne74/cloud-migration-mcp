@@ -189,6 +189,79 @@
       "notes": "Boolean: true=90 (licensing confirmed), false=20 (unconfirmed — do not migrate until resolved)"
     },
     {
+      "id": "CON-001",
+      "name": "12-Factor: Stateless Processes",
+      "description": "Application maintains no in-process state between requests. Stateless apps support horizontal scaling and container restarts without data loss. Source: 12factor.net Factor VI; CIS Docker Benchmark; AWS ECS/EKS best practices.",
+      "weight": 20,
+      "direction": "higher-is-better",
+      "workloadAttribute": "isStateless",
+      "notes": "Boolean: true=100 (stateless — excellent container candidate), false=0 (stateful — must externalise state before containerising), undefined=50 (unknown — partial credit)"
+    },
+    {
+      "id": "CON-002",
+      "name": "12-Factor: Config via Environment Variables",
+      "description": "All configuration (URLs, credentials, feature flags) is injected via environment variables rather than baked into code or config files. Source: 12factor.net Factor III; CIS Docker Benchmark 4.1.",
+      "weight": 15,
+      "direction": "higher-is-better",
+      "workloadAttribute": "configViaEnvVars",
+      "notes": "Boolean: true=100 (env-var config — 12-factor compliant), false=0 (hardcoded config — refactor required), undefined=50"
+    },
+    {
+      "id": "CON-003",
+      "name": "12-Factor: No Local Filesystem Persistent State",
+      "description": "Application does not write persistent data to the local filesystem. Local writes prevent container scaling and cause data loss on restart. Source: 12factor.net Factor IV; AWS Well-Architected.",
+      "weight": 15,
+      "direction": "higher-is-better",
+      "workloadAttribute": "hasLocalFilesystemDependency",
+      "notes": "Boolean: false=100 (no local FS state — compliant), true=0 (has local FS dependency — blocker for containerisation), undefined=50"
+    },
+    {
+      "id": "CON-004",
+      "name": "12-Factor: Health Check Endpoint",
+      "description": "Application exposes a health check endpoint (e.g. /health, /readyz) compatible with container liveness and readiness probes. Required for Kubernetes and ECS health management. Source: 12factor.net Factor IX; Azure AKS baseline architecture; CNCF.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "hasHealthCheckEndpoint",
+      "notes": "Boolean: true=100 (health endpoint present), false=0 (no health endpoint — add before deploying to orchestrator), undefined=50"
+    },
+    {
+      "id": "CON-005",
+      "name": "12-Factor: Structured Logging to stdout",
+      "description": "Application emits structured (JSON) logs to stdout/stderr rather than writing to files or syslog. Container log aggregation pipelines (CloudWatch, Datadog, Splunk) consume stdout. Source: 12factor.net Factor XI; AWS CloudWatch Container Insights.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "hasStructuredLogging",
+      "notes": "Boolean: true=100 (structured stdout logging), false=0 (file-based logging — reconfigure before containerising), undefined=50"
+    },
+    {
+      "id": "CON-006",
+      "name": "Non-Root Container Execution",
+      "description": "Container runs as a non-root user. Running as root violates CIS Docker Benchmark 4.1 and is blocked by most production Kubernetes admission controllers (OPA, Kyverno, Pod Security Standards). Source: CIS Docker Benchmark 4.1; CNCF; AWS EKS best practices.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "runsAsNonRootUser",
+      "notes": "Boolean: true=100 (non-root — security compliant), false=0 (root — violates CIS benchmark, blocked by most admission controllers), undefined=50"
+    },
+    {
+      "id": "CON-007",
+      "name": "Dockerfile / Container Image Present",
+      "description": "A Dockerfile or equivalent container image definition already exists. Indicates previous containerisation effort and reduces image build effort. Source: CNCF; AWS ECR best practices.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "hasDockerfile",
+      "notes": "Boolean: true=100 (Dockerfile exists), false=20 (no Dockerfile — must be created), undefined=50"
+    },
+    {
+      "id": "CON-008",
+      "name": "No Privileged Mode Requirement",
+      "description": "Container does not require privileged mode (CAP_SYS_ADMIN, --privileged). Privileged containers bypass all Linux namespace isolation and are rejected by all CIS-compliant Kubernetes clusters. Source: CIS Docker Benchmark 5.4; CNCF security whitepaper.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "requiresPrivilegedMode",
+      "notes": "Boolean: false=100 (no privileged mode required — compliant), true=0 (requires privileged mode — hard blocker for managed Kubernetes), undefined=50"
+    },
+
+    {
       "id": "CRIT-017",
       "name": "Container Readiness (12-Factor Compliance)",
       "description": "How ready is the application for containerisation? Assessed against 12-factor app principles: stateless processes, config via environment variables, no local filesystem state, health check endpoint, structured logging, and non-root execution. Directly determines Replatform (containerise) vs Rehost (IaaS VM) strategy eligibility. Source: 12factor.net; CIS Docker Benchmark; CNCF; AWS ECS/EKS best practices; Azure AKS baseline architecture.",

@@ -2,6 +2,13 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WorkloadInput } from "../types/index.js";
 import { identifyRedFlags } from "../lib/red-flags.js";
+import {
+  listRedFlagDefinitions,
+  addRedFlagToFile,
+  updateRedFlagInFile,
+  deleteRedFlagFromFile,
+  reloadRedFlags,
+} from "../lib/red-flags-engine.js";
 
 // Shared workload schema for red flag triage — mirrors assessment schema with all new fields
 const RedFlagWorkloadSchema = z.object({
@@ -204,6 +211,147 @@ export function registerRedFlagsTools(server: McpServer): void {
       }
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
+    }
+  );
+
+  // ── list_red_flags ──────────────────────────────────────────────────────────
+
+  server.tool(
+    "list_red_flags",
+    "List all red flag definitions loaded from the active red flags JSON file, grouped by severity. " +
+      "Shows ID, severity, category, title, and condition for each flag. " +
+      "Use this to review what flags are configured before adding or modifying flags.",
+    {},
+    async () => {
+      const { definitions, filePath, count } = listRedFlagDefinitions();
+
+      const lines: string[] = [
+        `# Migration Red Flags — ${count} definitions\n`,
+        `**Source file:** \`${filePath}\`\n`,
+      ];
+
+      for (const sev of ["BLOCKER", "HIGH", "MEDIUM", "WARNING"] as const) {
+        const group = definitions.filter(d => d.severity === sev);
+        if (group.length === 0) continue;
+        const emoji = sev === "BLOCKER" ? "🔴" : sev === "HIGH" ? "🟠" : sev === "MEDIUM" ? "🟡" : "🟢";
+        lines.push(`## ${emoji} ${sev} (${group.length})\n`);
+        for (const d of group) {
+          lines.push(`- **[${d.id}]** ${d.title} *(${d.category})*`);
+        }
+        lines.push("");
+      }
+
+      lines.push(
+        "\nTo add a custom flag use `add_red_flag`. " +
+        "To modify severity or text use `update_red_flag`. " +
+        "To remove a flag use `delete_red_flag`. " +
+        "After manually editing the file, call `reload_red_flags` to apply changes."
+      );
+
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    }
+  );
+
+  // ── add_red_flag ────────────────────────────────────────────────────────────
+
+  const ConditionSchema = z.record(z.unknown()).describe(
+    "JSON condition expression. Simple: {\"attribute\":\"fieldName\",\"operator\":\"eq\",\"value\":true}. " +
+    "Compound: {\"and\":[...]} or {\"or\":[...]}. " +
+    "Operators: eq, neq, lt, lte, gt, gte, includes, notIncludes, defined, undefined, includesMatch."
+  );
+
+  server.tool(
+    "add_red_flag",
+    "Add a new organisation-specific red flag to the active red flags JSON file. " +
+      "The flag will be evaluated against workload attributes during identify_red_flags calls. " +
+      "Supply a unique ID (e.g. RF-HIGH-ORG-001), severity, category, title, detail, recommendation, source, and a condition expression.",
+    {
+      id: z.string().describe("Unique flag ID, e.g. RF-HIGH-ORG-001"),
+      severity: z.enum(["BLOCKER", "HIGH", "MEDIUM", "WARNING"]),
+      category: z.string().describe("Category label, e.g. Technical, Database, Licensing, Organisational"),
+      title: z.string().describe("Short title for the red flag"),
+      detail: z.string().describe("Detailed explanation of the risk"),
+      recommendation: z.string().describe("Recommended remediation action"),
+      source: z.string().describe("Source reference (standard, guidance document, etc.)"),
+      condition: ConditionSchema,
+    },
+    async ({ id, severity, category, title, detail, recommendation, source, condition }) => {
+      const { added, filePath } = addRedFlagToFile({
+        id, severity, category, title, detail, recommendation, source,
+        condition: condition as unknown as Parameters<typeof addRedFlagToFile>[0]["condition"],
+      });
+      return {
+        content: [{
+          type: "text",
+          text: `✅ Red flag **${added.id}** added to \`${filePath}\`.\n\nIt will be evaluated on the next \`identify_red_flags\` call.`,
+        }],
+      };
+    }
+  );
+
+  // ── update_red_flag ─────────────────────────────────────────────────────────
+
+  server.tool(
+    "update_red_flag",
+    "Update an existing red flag's severity, title, detail, recommendation, source, or condition. " +
+      "Supply the flag ID and only the fields you want to change.",
+    {
+      id: z.string().describe("ID of the red flag to update"),
+      severity: z.enum(["BLOCKER", "HIGH", "MEDIUM", "WARNING"]).optional(),
+      category: z.string().optional(),
+      title: z.string().optional(),
+      detail: z.string().optional(),
+      recommendation: z.string().optional(),
+      source: z.string().optional(),
+      condition: ConditionSchema.optional(),
+    },
+    async ({ id, ...updates }) => {
+      const { updated, filePath } = updateRedFlagInFile(id, updates as Parameters<typeof updateRedFlagInFile>[1]);
+      return {
+        content: [{
+          type: "text",
+          text: `✅ Red flag **${updated.id}** updated in \`${filePath}\`.\n\n**Title:** ${updated.title}\n**Severity:** ${updated.severity}`,
+        }],
+      };
+    }
+  );
+
+  // ── delete_red_flag ─────────────────────────────────────────────────────────
+
+  server.tool(
+    "delete_red_flag",
+    "Delete a red flag from the active red flags JSON file by ID. " +
+      "Built-in flags can be deleted if they are not applicable to your organisation. " +
+      "Use reload_red_flags after manually restoring deleted flags.",
+    {
+      id: z.string().describe("ID of the red flag to delete, e.g. RF-HIGH-001"),
+    },
+    async ({ id }) => {
+      const { deleted, filePath } = deleteRedFlagFromFile(id);
+      return {
+        content: [{
+          type: "text",
+          text: `✅ Red flag **${deleted}** deleted from \`${filePath}\`.`,
+        }],
+      };
+    }
+  );
+
+  // ── reload_red_flags ────────────────────────────────────────────────────────
+
+  server.tool(
+    "reload_red_flags",
+    "Reload the red flags JSON file from disk, clearing the in-memory cache. " +
+      "Use this after manually editing the red flags file to apply changes without restarting the server.",
+    {},
+    async () => {
+      const { loaded, filePath } = reloadRedFlags();
+      return {
+        content: [{
+          type: "text",
+          text: `✅ Red flags reloaded from \`${filePath}\` — **${loaded}** definitions active.`,
+        }],
+      };
     }
   );
 }

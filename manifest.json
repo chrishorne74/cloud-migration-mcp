@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "name": "cloud-migration",
   "display_name": "Cloud Migration",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Assess workloads, recommend 7R migration strategies, enforce guardrails, score migration candidates, plan migration waves, estimate costs, and generate draw.io architecture diagrams for cloud migration programmes.",
   "author": {
     "name": "Cloud Migration Tools"
@@ -18,8 +18,10 @@
       "env": {
         "GUARDRAILS_FILE": "${__dirname}/guardrails/migration-guardrails.md",
         "CRITERIA_FILE": "${__dirname}/criteria/migration-criteria.json",
+        "RED_FLAGS_FILE": "${__dirname}/red-flags/migration-red-flags.json",
         "USER_GUARDRAILS_FILE": "${user_config.guardrails_file}",
-        "USER_CRITERIA_FILE": "${user_config.criteria_file}"
+        "USER_CRITERIA_FILE": "${user_config.criteria_file}",
+        "USER_RED_FLAGS_FILE": "${user_config.red_flags_file}"
       }
     }
   },
@@ -97,6 +99,26 @@
       "description": "Triage a workload for migration red flags (BLOCKER/HIGH/MEDIUM/WARNING) using AWS MAP, Azure CAF, GCP, Gartner, IBM, DXC, TCS, BMC criteria. Returns overall migration verdict."
     },
     {
+      "name": "list_red_flags",
+      "description": "List all configured red flag definitions grouped by severity"
+    },
+    {
+      "name": "add_red_flag",
+      "description": "Add a custom organisation-specific red flag with a declarative condition expression"
+    },
+    {
+      "name": "update_red_flag",
+      "description": "Update an existing red flag's severity, title, detail, recommendation, source, or condition"
+    },
+    {
+      "name": "delete_red_flag",
+      "description": "Delete a red flag by ID"
+    },
+    {
+      "name": "reload_red_flags",
+      "description": "Reload red flag definitions from file after manual edits"
+    },
+    {
       "name": "assess_containerisation_fitness",
       "description": "Score containerisation readiness using 12-factor principles. Returns platform recommendation (EKS/AKS/GKE, ECS/Cloud Run, Windows Containers, or Not Suitable) and remediation list."
     },
@@ -142,6 +164,12 @@
       "type": "file",
       "title": "Custom Criteria File",
       "description": "Optional: path to your own migration-criteria.json scoring file. Leave empty to use the built-in criteria.",
+      "required": false
+    },
+    "red_flags_file": {
+      "type": "file",
+      "title": "Custom Red Flags File",
+      "description": "Optional: path to your own migration-red-flags.json file. Leave empty to use the built-in red flags.",
       "required": false
     }
   }

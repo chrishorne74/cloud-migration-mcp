@@ -8,99 +8,117 @@ import type {
 
 // ─── 12-Factor check definitions ─────────────────────────────────────────────
 
-function buildTwelveFactorChecks(w: WorkloadInput): TwelveFactorCheck[] {
+// Map from CON-xxx criterion ID to default weight for each check
+const CHECK_CRITERION_MAP: Record<string, string> = {
+  "III. Config — stored in environment":       "CON-002",
+  "VI. Processes — stateless and share-nothing": "CON-001",
+  "IV. Backing services — treat as attached resources": "CON-003",
+  "IX. Disposability — fast startup, graceful shutdown": "CON-004",
+  "XI. Logs — treat as event streams":         "CON-005",
+  "Security — non-root container process":     "CON-006",
+  "Build — Dockerfile / image definition present": "CON-007",
+};
+
+function w(factor: string, defaultWeight: number, weightsMap: Record<string, number>): number {
+  const criterionId = CHECK_CRITERION_MAP[factor];
+  return criterionId !== undefined && weightsMap[criterionId] !== undefined
+    ? weightsMap[criterionId]
+    : defaultWeight;
+}
+
+function buildTwelveFactorChecks(workload: WorkloadInput, weightsMap: Record<string, number> = {}): TwelveFactorCheck[] {
   return [
     {
       factor: "III. Config — stored in environment",
-      status: w.configViaEnvVars === true ? "Pass" : w.configViaEnvVars === false ? "Fail" : "Unknown",
+      status: workload.configViaEnvVars === true ? "Pass" : workload.configViaEnvVars === false ? "Fail" : "Unknown",
       detail:
-        w.configViaEnvVars === true
+        workload.configViaEnvVars === true
           ? "Configuration is injected via environment variables — 12-factor compliant."
-          : w.configViaEnvVars === false
+          : workload.configViaEnvVars === false
           ? "Configuration is baked into code or config files — must be externalised before containerisation."
           : "Not assessed. Verify no credentials, URLs, or environment-specific settings are hardcoded.",
-      weight: 15,
+      weight: w("III. Config — stored in environment", 15, weightsMap),
     },
     {
       factor: "VI. Processes — stateless and share-nothing",
-      status: w.isStateless === true ? "Pass" : w.isStateless === false ? "Fail" : "Unknown",
+      status: workload.isStateless === true ? "Pass" : workload.isStateless === false ? "Fail" : "Unknown",
       detail:
-        w.isStateless === true
+        workload.isStateless === true
           ? "Application is stateless — compatible with horizontal scaling and container restarts."
-          : w.isStateless === false
+          : workload.isStateless === false
           ? "Application maintains in-process state (sessions, file handles, local cache) — state must be externalised to Redis/managed DB/blob storage before containerisation."
           : "Not assessed. Check for in-memory session state, sticky sessions, or local file caching.",
-      weight: 20,
+      weight: w("VI. Processes — stateless and share-nothing", 20, weightsMap),
     },
     {
       factor: "IV. Backing services — treat as attached resources",
       status:
-        w.hasLocalFilesystemDependency === false ? "Pass"
-        : w.hasLocalFilesystemDependency === true ? "Fail"
+        workload.hasLocalFilesystemDependency === false ? "Pass"
+        : workload.hasLocalFilesystemDependency === true ? "Fail"
         : "Unknown",
       detail:
-        w.hasLocalFilesystemDependency === true
+        workload.hasLocalFilesystemDependency === true
           ? "Application writes persistent state to local filesystem — incompatible with containers. Externalise to managed storage (S3, Azure Blob, EFS, etc.)."
-          : w.hasLocalFilesystemDependency === false
+          : workload.hasLocalFilesystemDependency === false
           ? "No local filesystem persistent state detected — compliant."
           : "Not assessed. Check for writes to local disk outside of temporary/scratch usage.",
-      weight: 15,
+      weight: w("IV. Backing services — treat as attached resources", 15, weightsMap),
     },
     {
       factor: "IX. Disposability — fast startup, graceful shutdown",
-      status: w.hasHealthCheckEndpoint === true ? "Pass" : w.hasHealthCheckEndpoint === false ? "Fail" : "Unknown",
+      status: workload.hasHealthCheckEndpoint === true ? "Pass" : workload.hasHealthCheckEndpoint === false ? "Fail" : "Unknown",
       detail:
-        w.hasHealthCheckEndpoint === true
+        workload.hasHealthCheckEndpoint === true
           ? "Application exposes a health check endpoint — compatible with container liveness/readiness probes."
-          : w.hasHealthCheckEndpoint === false
+          : workload.hasHealthCheckEndpoint === false
           ? "No health check endpoint — container orchestrators cannot determine readiness. Implement /health or /readyz endpoint."
           : "Not assessed. Liveness and readiness probes are mandatory for production Kubernetes deployments.",
-      weight: 10,
+      weight: w("IX. Disposability — fast startup, graceful shutdown", 10, weightsMap),
     },
     {
       factor: "XI. Logs — treat as event streams",
-      status: w.hasStructuredLogging === true ? "Pass" : w.hasStructuredLogging === false ? "Fail" : "Unknown",
+      status: workload.hasStructuredLogging === true ? "Pass" : workload.hasStructuredLogging === false ? "Fail" : "Unknown",
       detail:
-        w.hasStructuredLogging === true
+        workload.hasStructuredLogging === true
           ? "Application writes structured logs to stdout/stderr — compatible with container log aggregation (CloudWatch, Azure Monitor, GCP Logging)."
-          : w.hasStructuredLogging === false
+          : workload.hasStructuredLogging === false
           ? "Application writes logs to local files — log agents cannot collect without a volume mount or sidecar. Implement stdout/stderr structured logging."
           : "Not assessed. Check whether application writes to local log files vs. stdout.",
-      weight: 10,
+      weight: w("XI. Logs — treat as event streams", 10, weightsMap),
     },
     {
       factor: "Security — non-root container process",
-      status: w.runsAsNonRootUser === true ? "Pass" : w.runsAsNonRootUser === false ? "Fail" : "Unknown",
+      status: workload.runsAsNonRootUser === true ? "Pass" : workload.runsAsNonRootUser === false ? "Fail" : "Unknown",
       detail:
-        w.runsAsNonRootUser === true
+        workload.runsAsNonRootUser === true
           ? "Application runs as a non-root user — meets CIS Docker Benchmark and Kubernetes Pod Security Standards."
-          : w.runsAsNonRootUser === false
+          : workload.runsAsNonRootUser === false
           ? "Application requires root — violates CIS Docker Benchmark. Evaluate whether root is actually required or inherited from base image defaults."
           : "Not assessed. Verify the process UID in Dockerfile USER instruction or equivalent.",
-      weight: 10,
+      weight: w("Security — non-root container process", 10, weightsMap),
     },
     {
       factor: "Build — Dockerfile / image definition present",
-      status: w.hasDockerfile === true ? "Pass" : w.hasDockerfile === false ? "Fail" : "Unknown",
+      status: workload.hasDockerfile === true ? "Pass" : workload.hasDockerfile === false ? "Fail" : "Unknown",
       detail:
-        w.hasDockerfile === true
+        workload.hasDockerfile === true
           ? "Dockerfile or container build definition exists — containerisation effort is lower."
-          : w.hasDockerfile === false
+          : workload.hasDockerfile === false
           ? "No Dockerfile present — containerisation effort includes writing and validating image build definition. Estimate 1–5 days depending on complexity."
           : "Not assessed.",
-      weight: 10,
+      weight: w("Build — Dockerfile / image definition present", 10, weightsMap),
     },
     {
       factor: "Platform — no Windows-only dependencies",
       status:
-        w.hasWindowsOnlyDependencies === false ? "Pass"
-        : w.hasWindowsOnlyDependencies === true ? "Fail"
-        : w.hasComDcomDependency === true ? "Fail"
+        workload.hasWindowsOnlyDependencies === false ? "Pass"
+        : workload.hasWindowsOnlyDependencies === true ? "Fail"
+        : workload.hasComDcomDependency === true ? "Fail"
         : "Unknown",
       detail:
-        w.hasWindowsOnlyDependencies === true || w.hasComDcomDependency === true
+        workload.hasWindowsOnlyDependencies === true || workload.hasComDcomDependency === true
           ? "Windows-only dependencies (COM/DCOM, .NET Framework, Windows Registry) detected — limited to Windows containers. Linux containers are not possible. Windows containers carry licensing overhead and have significantly larger image sizes (4–8 GB base)."
-          : w.hasWindowsOnlyDependencies === false
+          : workload.hasWindowsOnlyDependencies === false
           ? "No Windows-only dependencies — Linux containers are viable, enabling smaller images and lower infrastructure cost."
           : "Not assessed. Check .NET Framework version, COM/DCOM usage, and Windows Registry dependencies.",
       weight: 10,
@@ -193,8 +211,11 @@ function recommendPlatform(w: WorkloadInput, level: ContainerFitnessLevel): {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export function assessContainerFitness(workload: WorkloadInput): ContainerFitnessReport {
-  const checks = buildTwelveFactorChecks(workload);
+export function assessContainerFitness(
+  workload: WorkloadInput,
+  weightsMap: Record<string, number> = {}
+): ContainerFitnessReport {
+  const checks = buildTwelveFactorChecks(workload, weightsMap);
 
   const blockers: string[] = [];
   const remediationItems: string[] = [];
