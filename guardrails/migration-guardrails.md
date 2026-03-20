@@ -215,6 +215,262 @@ Recommendation: Set a decommission target date per workload (typically 30–90 d
 
 ---
 
+## Technical Red Flags
+
+These guardrails identify technical characteristics that indicate a workload is a poor migration candidate or requires significant remediation before migration can proceed. Source: AWS MAP, Azure CAF, Google Cloud Adoption Framework, Gartner, IBM, DXC, TCS.
+
+<!-- MG-TRF-001 | CRITICAL -->
+**Workloads with physical hardware dependencies cannot be migrated to standard cloud IaaS**
+Applications requiring physical hardware (security dongles, HSMs, FPGAs, specialised NICs, proprietary storage arrays, or specific PCI cards) have no standard cloud equivalent and cannot be lifted to IaaS.
+Hardware-bound workloads will fail to start or function correctly in virtualised cloud environments. Migration without hardware remediation results in immediate post-cutover failure.
+Recommendation: Identify hardware dependencies during discovery. Evaluate cloud-equivalent managed services (AWS CloudHSM, Azure Dedicated HSM, bare-metal cloud options). If no equivalent exists, assign Retain strategy. Document as a hard blocker in the migration plan.
+
+<!-- MG-TRF-002 | CRITICAL -->
+**Sub-millisecond latency workloads are not suitable for cloud migration without architectural redesign**
+Applications with sub-millisecond latency SLAs (high-frequency trading, real-time industrial control systems, SCADA, CNC machine interfaces, hard real-time manufacturing control) cannot tolerate the network overhead of cloud infrastructure.
+Internet-routed latency is incompatible with sub-millisecond SLA requirements. Migrating these workloads without addressing latency will cause SLA violations and operational failures.
+Recommendation: Assign Retain strategy for sub-millisecond latency workloads. Evaluate AWS Outposts, Azure Stack, or GCP Distributed Cloud for edge deployments where latency constraints apply. Document latency SLA in the workload record.
+
+<!-- MG-TRF-003 | CRITICAL -->
+**Air-gapped or classified workloads require sovereign or dedicated hosting**
+Workloads processing data classified above the available cloud certification level (e.g., Top Secret, SCI) or subject to sovereign hosting requirements where no qualifying cloud region exists cannot be migrated to standard public cloud regions.
+Migrating classified or sovereign data to non-qualified cloud regions violates legal obligations and security clearances.
+Recommendation: Validate data classification level against available cloud certifications (FedRAMP, IL4/IL5, IRAP, etc.) before assessment. Assign Retain for workloads exceeding available certifications. Explore AWS GovCloud, Azure Government, or national sovereign cloud options.
+
+<!-- MG-TRF-004 | CRITICAL -->
+**Software licences that prohibit cloud deployment are a hard migration blocker**
+Some perpetual licences explicitly forbid cloud deployment or require renegotiation and significant licence uplift before cloud use. Migrating without confirming cloud licensing rights violates licence agreements.
+Licence non-compliance carries legal risk and can result in audit findings, fines, or forced decommission post-migration.
+Recommendation: Conduct a licence audit during assessment. Confirm cloud deployment rights with each software vendor before including in a migration wave. Document BYOL eligibility, SaaS alternatives, or licence renegotiation requirements per application.
+
+<!-- MG-TRF-005 | CRITICAL -->
+**End-of-support operating systems must be upgraded before or during migration**
+Workloads running end-of-support operating systems (Windows Server 2003, Windows 2000, Solaris, HP-UX, AIX, Windows XP) have no ongoing security patches, no cloud agent support, and cannot receive Azure VM extensions or AWS SSM agent capabilities.
+Migrating an unsupported OS to the cloud replicates an existing security liability, violates compliance baselines, and leaves the workload unmanageable through cloud tooling. Azure Migrate marks these as Conditionally Ready or Not Ready.
+Recommendation: Upgrade OS as part of the migration (Replatform strategy) or as a pre-migration workstream. If upgrade is not feasible, assign Retain strategy with a documented risk acceptance. Windows Server 2003 requires a Custom Support Agreement for Azure migration.
+
+<!-- MG-TRF-006 | HIGH -->
+**Hardcoded IP addresses, server names, and UNC paths must be remediated before migration**
+Applications with hardcoded private IP addresses, server hostnames, or Windows UNC paths (\\SERVER\share) will fail immediately after migration because cloud instances receive new IPs and DNS names.
+This is the most common cause of application failure in the 48 hours post-cutover. Discovered in 38% of migration failures per Uptime Institute (2025).
+Recommendation: Scan application code, configuration files, and registry entries for hardcoded network references during assessment. Use CAST Highlight, GitHub Copilot AppCAT, or equivalent tooling. Remediate before migration wave or accept and document as a post-migration Day 1 fix item.
+
+<!-- MG-TRF-007 | HIGH -->
+**Local filesystem and Windows Registry dependencies must be addressed before containerisation or replatforming**
+Applications that write persistent state to local disk (C:\AppData, /tmp, local SQLite) or depend heavily on the Windows Registry cannot be containerised or made stateless without code changes.
+Containers and auto-scaled cloud instances do not preserve local state between restarts. Applications with these patterns will lose data or fail on scale-out events.
+Recommendation: Identify stateful local dependencies during discovery. Externalise state to managed storage (S3, Azure Blob, Cloud Storage, managed databases) as part of the Replatform or Refactor strategy. For Rehost, document local state as a post-migration risk.
+
+<!-- MG-TRF-008 | HIGH -->
+**COM, DCOM, and ActiveX dependencies prevent containerisation and complicate cloud-native deployment**
+Applications with COM, DCOM, or ActiveX inter-process communication can only be deployed on Windows IaaS VMs. They cannot be containerised or replatformed to Linux-based managed services.
+COM/DCOM adds licensing cost (Windows VMs only), limits scaling options, and prevents use of modern managed runtimes. These applications are candidates for Rehost-only or replacement.
+Recommendation: Flag COM/DCOM/ActiveX usage during code assessment. Assign Rehost strategy targeting Windows IaaS. Include modernisation (removal of COM/DCOM) as a post-migration refactoring initiative if business value justifies it.
+
+<!-- MG-TRF-009 | HIGH -->
+**Zombie and idle applications should be evaluated for retirement before migration**
+Applications where CPU and memory utilisation has been consistently below 5% for 90 days (zombie) or between 5–20% for 90 days (idle) with no inbound connections in 90 days are prime Retire candidates. Migrating these consumes migration effort with no business value.
+The AWS Prescriptive Guidance and Gartner both identify 10–20% of typical enterprise application portfolios as zombie or idle. Retiring these before migration reduces wave complexity and direct costs.
+Recommendation: Collect 90 days of CPU, memory, and network utilisation data during discovery. Flag applications meeting zombie/idle criteria for business owner confirmation of retirement. Do not include unconfirmed Retire candidates in migration waves.
+
+<!-- MG-TRF-010 | HIGH -->
+**Applications with no source code, documentation, or owner require remediation before migration**
+Orphaned applications where no source code is accessible, no architectural documentation exists, and no application owner can be identified carry extreme migration risk. Discovery, dependency mapping, impact assessment, and rollback planning are all impossible without this information.
+Per IBM Rapid Assessment methodology, these applications carry unlimited risk exposure. Migrating them relies entirely on institutional knowledge that may not exist.
+Recommendation: Escalate undocumented orphaned applications for business owner identification. Do not include in migration waves until an owner is confirmed, architecture is reverse-engineered, and a dependency map is produced. Assign Retain or Retire as default pending investigation.
+
+<!-- MG-TRF-011 | MEDIUM -->
+**Non-x86 architectures require specialist migration tooling and assessment**
+Applications running on IBM AS/400 (IBMi), Oracle Solaris SPARC, HP-UX Itanium, or mainframes (IBM z/OS) cannot be migrated using standard cloud migration tools (AWS MGN, Azure Migrate, Google Migrate for Compute Engine). Standard IaaS VMs do not support non-x86 instruction sets.
+Applying standard migration tooling to non-x86 workloads will produce no usable output. These workloads require specialised assessment and migration paths.
+Recommendation: Identify non-x86 platforms during infrastructure discovery. Engage specialist tooling and skills: IBM iProject, Stromasys CHARON for legacy SPARC/HP-UX, or mainframe modernisation tooling (Google AMTLZ, AWS Blu Age, Micro Focus). Treat as a separate workstream with dedicated assessment.
+
+<!-- MG-TRF-012 | MEDIUM -->
+**Using AWS Application Migration Service (MGN) for database workloads is an anti-pattern**
+AWS MGN performs OS-level block replication and is designed for application server workloads, not databases. Using MGN for high-read/write database instances causes replication errors, extended cutover windows, and data loss risk.
+Applying the wrong migration tool to databases is a documented AWS failure mode that produces inconsistent data or migration job failures.
+Recommendation: Use native database replication tools for all database migrations: AWS DMS, Oracle Data Guard, SQL Server log shipping, MySQL replication, PostgreSQL logical replication. MGN is for OS-level server migration only.
+
+---
+
+## Organisational Red Flags
+
+These guardrails identify organisational conditions that significantly increase migration failure risk. Source: Gartner (10 Common Cloud Strategy Mistakes, 6 Ways Cloud Migration Costs Go Off the Rails), Forrester, Accenture, AWS MAP.
+
+<!-- MG-ORG-001 | CRITICAL -->
+**Migration must not begin without a deployed cloud landing zone**
+Migrating workloads before a cloud landing zone (VPC/VNet, IAM baseline, network security groups, DNS, monitoring, account structure) is deployed causes security gaps, identity failures, DNS resolution failures, and compliance violations that must be retrofitted post-migration.
+This is the most commonly cited preventable migration failure mode across AWS, Azure, GCP, and major integrators. Azure CAF and AWS MAP both define landing zone deployment as a hard prerequisite for production workload migration.
+Recommendation: Treat Landing Zone deployment as Wave 0. Do not begin Wave 1 until Landing Zone has passed a security review and connectivity has been validated end-to-end. Use AWS Control Tower, Azure Landing Zones (ALZ), or Google Cloud Landing Zone accelerators.
+
+<!-- MG-ORG-002 | CRITICAL -->
+**No executive sponsorship is a programme-level blocker**
+Cloud migrations driven as purely IT-led cost-cutting exercises without business co-ownership consistently fail. Application owners block scope, prioritisation is impossible without business input, and escalation paths for blockers do not exist without executive mandate.
+Gartner identifies this as mistake #1 of 10 common cloud strategy mistakes. AWS MAP explicitly requires executive buy-in as a gating criterion. Google Cloud Adoption Framework's "Lead" theme is a maturity gating factor.
+Recommendation: Confirm executive sponsor before migration programme kickoff. Establish a steering committee with joint IT and business representation. Define escalation path from Day 1 with a maximum 48-hour SLA for blocker resolution.
+
+<!-- MG-ORG-003 | HIGH -->
+**No formal workload assessment phase is a leading indicator of cost overrun**
+Proceeding directly from inventory to migration without a formal assessment phase (triage, scoring, dependency mapping, strategy assignment) results in incorrect wave sequencing, unexpected blockers, cost overruns, and scope instability.
+Gartner identifies failing to assess workloads as one of the six root causes of cloud migration cost overruns. AWS MAP mandates a formal Assess phase before any migration execution. Post-migration cloud costs are on average 23% higher than estimated when workload assessment is skipped.
+Recommendation: Complete a formal assessment phase covering all in-scope workloads before finalising wave plans. Use `assess_workload` or `score_migration_candidates` tools. Document exceptions and assumptions for any workload migrated without full assessment.
+
+<!-- MG-ORG-004 | HIGH -->
+**Business case must include indirect and residual costs**
+Migration business cases that exclude operational transformation costs, residual data centre costs (rent, power, hardware refresh deferral), and post-migration optimisation costs consistently understate total programme cost by 30–50%.
+Gartner identifies omission of indirect costs as one of the six root causes of cloud migration cost overruns. These costs are real and material — failing to budget for them causes mid-programme funding crises.
+Recommendation: Include the following in the migration business case: operational transformation (retraining, process change), residual data centre costs (30–90 days post-hypercare before decommission), post-migration optimisation wave (right-sizing, reserved capacity), and programme management overhead.
+
+<!-- MG-ORG-005 | HIGH -->
+**Migration partner selection based on price or incumbent relationship without migration experience is high risk**
+Selecting a migration delivery partner based on existing commercial relationships or lowest cost, rather than demonstrated cloud migration experience and methodology, is a leading predictor of cost overrun and schedule slippage.
+Gartner identifies this as the #1 root cause in "6 Ways Cloud Migration Costs Go Off the Rails." Delivering a migration programme requires specialised skills distinct from general IT delivery or cloud consulting.
+Recommendation: Evaluate migration partners on: number of migrations delivered, reference customers in similar industry, tooling and automation maturity, assessment methodology rigour, and certified migration competencies (AWS MSP/MAP, Microsoft Azure Expert MSP, Google Cloud Premier Partner).
+
+<!-- MG-ORG-006 | HIGH -->
+**Cloud skills gap must be assessed and a remediation plan in place before migration**
+75% of organisations cite lack of cloud resources or expertise as their top cloud challenge (Flexera 2025). 70% of IT decision-makers report a skills gap. Migrating workloads to an environment the operations team cannot manage creates immediate post-migration risk.
+Skills gaps are most acute in cloud security, infrastructure as code, and FinOps. Organisations without these skills will experience security incidents, runaway costs, and operational failures.
+Recommendation: Conduct a cloud skills assessment covering: cloud architecture, IaC (Terraform/CloudFormation/Bicep), cloud security, FinOps, and cloud operations. Develop a training and hiring plan. Stand up a Cloud Centre of Excellence (CCoE) before Wave 1.
+
+<!-- MG-ORG-007 | MEDIUM -->
+**Dependency mapping must use tooling, not manual-only methods**
+Manual-only dependency discovery produces low-confidence wave plans and is a root cause of post-cutover failures. 38% of failed migration projects cite unanticipated dependency conflicts (Uptime Institute 2025).
+Manual discovery misses undocumented integrations, shared databases used by multiple applications, and informal file-drop integrations. Automated tools surface these reliably.
+Recommendation: Use automated discovery tooling: AWS Application Discovery Service, Azure Migrate dependency analysis, Google Migration Center, or third-party tools (TDS TransitionManager, Flexera). Treat dependency maps as mandatory sign-off criteria before finalising wave composition.
+
+<!-- MG-ORG-008 | MEDIUM -->
+**Applying Refactor strategy to more than 15% of the migration portfolio stalls the programme**
+Refactor/re-architect requires months to years of development effort per application. Applying it broadly during a migration programme destroys velocity and causes the entire programme to stall. AWS explicitly warns against this pattern.
+AWS recommends: Rehost or Relocate first, modernise after. Reserve Refactor for maximum 10–15% of portfolio during the migration phase. Remaining modernisation should be a post-migration programme.
+Recommendation: Flag workloads assigned Refactor strategy that exceed 15% of total portfolio for senior programme review. Consider splitting: Rehost now, Refactor in a subsequent modernisation programme. Only apply Refactor during migration where a business-critical capability gap makes it unavoidable.
+
+---
+
+## Mainframe
+
+These guardrails are specific to mainframe modernisation programmes. Source: IBM, DXC, TCS, BMC, mLogica, Google Cloud Mainframe Assessment Tool.
+
+<!-- MG-MF-001 | CRITICAL -->
+**Mainframe programmes using Natural/Adabas require specialist assessment and extended timelines**
+Natural (Software AG) application stacks running on Adabas databases have significantly fewer automated conversion tools than COBOL/VSAM/Db2 equivalents. Specialist skills are extremely scarce globally. Natural/Adabas programmes consistently exceed scope estimates.
+Natural/Adabas is frequently excluded from initial scope estimates and discovered mid-programme, causing timeline and budget overruns.
+Recommendation: Identify Natural and Adabas usage explicitly during mainframe discovery. Treat Natural/Adabas workloads as a separate workstream with dedicated assessment. Engage specialists with proven Natural/Adabas modernisation experience. Do not include in COBOL-based conversion timelines.
+
+<!-- MG-MF-002 | CRITICAL -->
+**Assembler code in production paths requires manual conversion — no automated tool handles this reliably**
+IBM Assembler (BAL) in production code paths cannot be automatically converted to any modern language by any commercially available tool. Manual reverse engineering and rewrite is required.
+Including Assembler in an automated conversion scope produces non-functional output. Vendors claiming automated Assembler conversion are misrepresenting their capabilities. Assembler in production paths is the most common cause of mainframe programme failure.
+Recommendation: Inventory all Assembler modules during assessment. Classify each as: utility (replaceable with standard library), infrastructure (replaceable with cloud equivalent), or business logic (requires manual rewrite). Document Assembler scope explicitly in the programme plan and timeline.
+
+<!-- MG-MF-003 | CRITICAL -->
+**IDMS (network database) workloads have no direct cloud equivalent and require data model redesign**
+CA IDMS (Integrated Database Management System) uses a network database model that has no managed cloud service equivalent. IDMS data must be migrated to a relational or NoSQL model, which requires significant data model redesign and application changes.
+Programmes that do not account for IDMS migration complexity consistently overrun. IDMS migration is a multi-year effort for large implementations.
+Recommendation: Inventory all IDMS databases and dependent COBOL programs during assessment. Engage IDMS-specialist consultants. Define a data model migration strategy (typically relational) and timeline separately from COBOL/CICS conversion. Do not merge IDMS migration into standard COBOL conversion estimates.
+
+<!-- MG-MF-004 | CRITICAL -->
+**Claim of full mainframe exit in under 12 months is a vendor red flag**
+No credible mainframe modernisation programme of material scale can be completed in under 12 months. Institutional knowledge capture and batch equivalency testing alone require 6–9 months. Any vendor making this claim is misrepresenting the scope or planning a risky big-bang approach.
+Programmes accepting vendor claims of sub-12-month full mainframe exits consistently fail, face significant cost overruns, and may cause production incidents.
+Recommendation: Reject any vendor proposal claiming full mainframe exit in under 12 months for programmes involving more than 500K lines of code. Require vendors to provide documented reference customers who completed comparable scope in the claimed timeline. Engage an independent technical advisor to review vendor timeline claims.
+
+<!-- MG-MF-005 | CRITICAL -->
+**Claim of fully automated COBOL-to-Java conversion without manual review is a vendor red flag**
+No tool achieves production-quality COBOL-to-Java conversion without significant manual review and testing. Vendors claiming 100% automated conversion with no human review are misrepresenting the technology. Machine-generated Java from COBOL is typically unmaintainable without refactoring.
+Organisations accepting this claim receive generated code they cannot maintain, debug, or extend, negating the modernisation benefit.
+Recommendation: Require all vendors to demonstrate converted code quality on a representative sample (minimum 5% of production code volume) before contract signature. Establish code quality gates: cyclomatic complexity, test coverage, and security scan results. Expect 30–50% human effort for review, refactoring, and test authoring on top of automated conversion.
+
+<!-- MG-MF-006 | HIGH -->
+**IMS DB/DC with complex hierarchical data requires separate assessment and extended timeline**
+IBM IMS (Information Management System) uses a hierarchical database model. Migrating IMS DB data to a relational model requires schema redesign, data transformation, and application rewrite of all DL/I calls. This is equivalent to a database migration programme in its own right.
+IMS is frequently underestimated in mainframe programmes. Including IMS in a standard COBOL/Db2 timeline without adjustment causes overrun.
+Recommendation: Inventory all IMS databases and dependent programs separately. Engage IMS-specialist consultants. Estimate IMS migration separately from COBOL/CICS/Db2 conversion. Consider whether IMS data can be staged into Db2 as an interim step to decouple the database migration from the application migration.
+
+<!-- MG-MF-007 | HIGH -->
+**JCL with embedded business logic must be analysed and extracted before migration**
+JCL (Job Control Language) in mainframe batch processing often contains implicit business logic (conditional step execution, return code handling, dataset manipulations) that is not documented as business rules. Migrating the JCL equivalent without extracting this logic produces incomplete target implementations.
+Business logic hidden in JCL is discovered during UAT, causing rework and timeline extension. It is a top-5 cause of mainframe programme overrun.
+Recommendation: Include JCL analysis in the mainframe discovery phase. Use automated JCL parsing tools (Google AMTLZ, IBM Watsonx Code Assistant for Z, Micro Focus Enterprise Analyzer) to identify embedded business logic. Document extracted logic in a business rules catalogue before conversion.
+
+<!-- MG-MF-008 | HIGH -->
+**Unknown batch window dependencies must be resolved before migration**
+Mainframe batch jobs frequently have implicit time-based dependencies (job A must complete before job B starts based on schedule, not explicit dependency declarations). These are not captured in JCL and require observation of production batch runs to document.
+Batch jobs migrated without capturing time-based dependencies fail in production because the dependency graph is incomplete. Batch window failures are the most common post-go-live incident type in mainframe migrations.
+Recommendation: Observe and document production batch schedules for a minimum of 4 weeks (covering month-end, quarter-end, and year-end windows if applicable). Use workload automation tools (Control-M, TWS/z, Zena) to export job dependency definitions. Validate the target scheduler implements equivalent dependency chains before cutover.
+
+<!-- MG-MF-009 | HIGH -->
+**No structured knowledge capture methodology puts the programme at unlimited risk**
+If the mainframe team retires or departs without a structured knowledge capture process, the programme loses the institutional knowledge required to validate the correctness of migrated outputs. Business logic encoded in 30–40-year-old COBOL cannot be reconstructed from code alone.
+Post-retirement knowledge gaps are unrecoverable. A single undocumented rule embedded in a COBOL copybook can cause regulatory or financial reporting failures post-migration.
+Recommendation: Begin structured knowledge capture from Day 1, before any conversion work starts. Interview subject matter experts and record business rules, data meanings, known exceptions, and seasonal variations. Use business rule extraction tools as a supplement, not a replacement. Treat knowledge capture as a critical path activity.
+
+<!-- MG-MF-010 | MEDIUM -->
+**"Last mile" languages (PL/I, Easytrieve, Telon, RPG) excluded from scope cause programme failure**
+Mainframe programmes scoped around COBOL/CICS/Db2 often exclude PL/I, Easytrieve, Telon, RPG, and other languages present in the estate. When discovered mid-programme, these create unplanned scope, cost, and timeline impacts.
+Last-mile language exclusions are in the top 5 mainframe programme failure causes (BMC).
+Recommendation: Include language inventory as a mandatory discovery step. Use automated scanning tools to identify every language present in the mainframe estate before scope is finalised. Explicitly include or exclude each language with documented rationale.
+
+---
+
+## Database Migration Red Flags
+
+These guardrails capture database-specific technical blockers from Azure Migrate SQL Assessment, GCP Database Migration Service, and AWS DMS documentation.
+
+<!-- MG-DB-001 | CRITICAL -->
+**SQL Server FILESTREAM and FileTable features block migration to Azure SQL Managed Instance**
+SQL Server databases using FILESTREAM or FileTable cannot be backed up and restored to Azure SQL Managed Instance. This is a hard technical blocker — there is no workaround short of removing FILESTREAM usage from the application and database.
+Attempting to migrate a FILESTREAM database to Azure SQL MI fails at the restore step. Source: Microsoft Azure SQL Assessment documentation.
+Recommendation: Detect FILESTREAM/FileTable usage during SQL assessment (Azure SQL Assessment, AWS Schema Conversion Tool). If present, migrate to SQL Server on Azure VM/EC2 instead of a managed instance, or remove FILESTREAM and replace with Blob Storage before migration.
+
+<!-- MG-DB-002 | CRITICAL -->
+**Oracle tables without primary keys cannot be reliably replicated by DMS**
+Google Cloud DMS and AWS DMS cannot guarantee consistent replication for Oracle tables that lack primary keys. Row identification for CDC (Change Data Capture) depends on primary keys or supplemental logging. Absent both, DMS may replicate duplicate or missed rows.
+Tables without primary keys will produce silent data integrity failures during DMS replication, which may not be detected until post-cutover data validation.
+Recommendation: Identify all tables without primary keys during database assessment. Add primary keys or configure supplemental logging before initiating DMS replication. Validate row counts and checksums post-migration for all affected tables.
+
+<!-- MG-DB-003 | CRITICAL -->
+**Oracle ANYDATA type is unsupported by GCP DMS — affected tables cannot be replicated**
+The Oracle ANYDATA data type is completely unsupported by Google Cloud DMS. Tables using ANYDATA cannot be replicated at all. This is a hard blocker, not a warning.
+Source: Google Cloud DMS Oracle-to-AlloyDB and Oracle-to-PostgreSQL known limitations documentation.
+Recommendation: Inventory all ANYDATA columns in Oracle schemas during assessment. These tables must be migrated via bulk export/import rather than DMS replication. Plan for downtime windows for ANYDATA table migration.
+
+<!-- MG-DB-004 | CRITICAL -->
+**Oracle Index-Organised Tables (IOTs) are not supported by GCP DMS**
+Index-Organised Tables (IOTs) in Oracle are not supported by Google Cloud Database Migration Service. IOTs cannot be replicated using DMS and require alternative migration approaches.
+Recommendation: Identify all IOTs using Oracle data dictionary queries during assessment. Plan bulk migration for IOTs outside the DMS replication stream. Validate data integrity independently.
+
+<!-- MG-DB-005 | HIGH -->
+**SQL Server with xp_cmdshell, CLR assemblies, or linked servers requires target validation**
+SQL Server databases using xp_cmdshell, CLR assemblies (SAFE/EXTERNAL_ACCESS/UNSAFE), linked servers (especially to non-SQL providers), or BEGIN DISTRIBUTED TRANSACTION with non-SQL remote servers cannot migrate directly to Azure SQL Database. Azure SQL Managed Instance supports most of these features but requires validation.
+Features that work in on-premises SQL Server may fail silently or behave differently in managed cloud SQL services.
+Recommendation: Run Azure SQL Assessment or AWS Schema Conversion Tool against all SQL Server instances before migration. Review all assessment warnings (not just blockers). Test each flagged feature in the target environment during a dry run before production cutover.
+
+<!-- MG-DB-006 | HIGH -->
+**DDL changes during DMS replication cause migration job failure and require restart**
+Any schema change (ALTER TABLE, CREATE INDEX, DROP COLUMN) made to the source database while a DMS migration job is replicating causes the job to fail or produce inconsistent data. This applies to AWS DMS and GCP DMS.
+DDL changes during migration are a top-5 DMS failure mode. A failed DMS job during production cutover requires restart from full load, extending the cutover window significantly.
+Recommendation: Implement a schema freeze on the source database for the duration of the migration. Communicate the freeze to all development teams at least 2 weeks before migration. Include schema freeze validation as a pre-cutover checklist item.
+
+<!-- MG-DB-007 | HIGH -->
+**Users, permissions, and service accounts are not migrated by DMS and must be recreated manually**
+AWS DMS, GCP DMS, and Azure Database Migration Service do not migrate database users, roles, or permissions. Post-migration, all application service accounts, database users, and permission grants must be recreated manually in the target database.
+Forgetting to recreate service accounts is a common cause of post-cutover application failures. The application connects but immediately fails authentication.
+Recommendation: Document all database users, roles, and permission grants during assessment. Create an automated script to recreate them in the target. Test service account authentication in the target environment during the dry run. Include user validation in the cutover checklist.
+
+<!-- MG-DB-008 | MEDIUM -->
+**Databases with sequential auto-increment primary keys migrating to Spanner require key redesign**
+Sequential integer primary keys (IDENTITY, SERIAL, AUTO_INCREMENT) create hotspot anti-patterns in Google Cloud Spanner. Spanner splits data by primary key range, and sequential inserts to a single key range cannot scale horizontally.
+Applications migrating to Spanner with sequential keys will experience write throughput limitations that defeat the purpose of using Spanner.
+Recommendation: During Spanner migration assessment, identify all tables using sequential integer primary keys. Redesign keys using UUID, hash-based, or bit-reversed integers before migration. Use the Spanner Migration Tool (SMT) schema recommendations to identify affected tables.
+
+<!-- MG-DB-009 | MEDIUM -->
+**End-of-life database versions with no managed cloud service path require upgrade pre-migration**
+Database versions such as Oracle 9i, SQL Server 2000/2005, Sybase ASE, and MySQL 5.5 have no managed cloud service equivalent and may not be supported as sources by DMS tooling. Migrating these versions as-is to IaaS replicates an existing security and support liability.
+Recommendation: Assess database version support status during discovery. For EOL database versions, plan a database upgrade as a pre-migration workstream or include the upgrade as part of the Replatform migration strategy.
+
+---
+
 ## Custom
 
 <!-- Add your organisation-specific guardrails below using the same format -->

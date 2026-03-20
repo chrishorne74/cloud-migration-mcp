@@ -65,6 +65,60 @@ export interface WorkloadInput {
   sourceCodeAvailable?: boolean;
   /** Custom attributes */
   attributes?: WorkloadAttribute[];
+
+  // ── Activity metrics (zombie/idle detection — AWS MAP guidance) ──────────
+  /** Average CPU utilisation over last 90 days (%) */
+  cpuUtilisation90DayAvgPct?: number;
+  /** Average memory utilisation over last 90 days (%) */
+  memoryUtilisation90DayAvgPct?: number;
+  /** Has the application received inbound network connections in the last 90 days? */
+  hasInboundConnections90Day?: boolean;
+
+  // ── Architecture anti-patterns ───────────────────────────────────────────
+  /** Number of detected code/architecture anti-patterns (hardcoded IPs, local FS deps, COM/DCOM, UNC paths, etc.) */
+  architectureAntiPatternCount?: number;
+  /** Does the application have hardcoded IP addresses or server names in code/config? */
+  hasHardcodedNetworkRefs?: boolean;
+  /** Does the application write persistent state to local filesystem? */
+  hasLocalFilesystemDependency?: boolean;
+  /** Does the application use COM, DCOM, or ActiveX? */
+  hasComDcomDependency?: boolean;
+  /** Does the application depend on specific physical hardware (dongles, FPGAs, NICs, proprietary storage)? */
+  hasPhysicalHardwareDependency?: boolean;
+  /** Does the application require custom kernel modules? */
+  hasCustomKernelModules?: boolean;
+
+  // ── Latency requirements ─────────────────────────────────────────────────
+  /** Latency SLA requirement in milliseconds (e.g. 1 = sub-ms, 10, 50, 200) */
+  latencyRequirementMs?: number;
+
+  // ── Platform flags ───────────────────────────────────────────────────────
+  /** Is this a mainframe workload (IBM z/OS, AS/400/IBMi, Unisys, etc.)? */
+  isMainframe?: boolean;
+  /** Mainframe languages present (e.g. ['COBOL', 'PL/I', 'Assembler', 'Natural', 'Easytrieve']) */
+  mainframeLanguages?: string[];
+  /** Non-x86 platform identifier (e.g. 'zOS', 'IBMi', 'Solaris SPARC', 'HP-UX', 'AIX') */
+  platform?: string;
+
+  // ── Database flags ───────────────────────────────────────────────────────
+  /** SQL Server-specific features in use that affect managed service eligibility */
+  sqlServerFeatures?: Array<"FILESTREAM" | "FileTable" | "xp_cmdshell" | "CLR" | "LinkedServers" | "DistributedTransactions" | "MultipleLogFiles">;
+  /** Oracle-specific features in use */
+  oracleFeatures?: Array<"ANYDATA" | "IndexOrganisedTables" | "StoredProcs" | "Triggers" | "IOT" | "XmlDb">;
+  /** Does any table in scope lack a primary key? */
+  hasTablesWithoutPrimaryKeys?: boolean;
+
+  // ── Licensing ────────────────────────────────────────────────────────────
+  /** Has the licence team confirmed cloud deployment rights for all software? */
+  cloudLicensingConfirmed?: boolean;
+  /** Are there known licences that may prohibit or require renegotiation for cloud? */
+  hasLicensingRisk?: boolean;
+
+  // ── Organisational ───────────────────────────────────────────────────────
+  /** Is there a confirmed executive sponsor for this workload's migration? */
+  hasExecutiveSponsor?: boolean;
+  /** Has formal dependency mapping been completed for this workload? */
+  dependencyMappingComplete?: boolean;
 }
 
 // ─── Assessment ───────────────────────────────────────────────────────────────

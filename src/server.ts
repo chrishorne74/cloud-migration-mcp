@@ -4,6 +4,7 @@ import { registerAssessmentTools } from "./tools/assessment.js";
 import { registerStrategyTools } from "./tools/strategy.js";
 import { registerDiagramTools } from "./tools/diagram.js";
 import { registerWaveTools } from "./tools/waves.js";
+import { registerRedFlagsTools } from "./tools/red-flags.js";
 
 export function createServer(): McpServer {
   const server = new McpServer({
@@ -16,6 +17,7 @@ export function createServer(): McpServer {
   registerStrategyTools(server);
   registerDiagramTools(server);
   registerWaveTools(server);
+  registerRedFlagsTools(server);
 
   return server;
 }

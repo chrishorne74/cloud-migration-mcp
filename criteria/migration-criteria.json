@@ -115,6 +115,78 @@
       "direction": "lower-is-better",
       "workloadAttribute": "complianceRequirements",
       "notes": "Array length: 0=100, 1=75, 2=50, 3+=20"
+    },
+    {
+      "id": "CRIT-011",
+      "name": "Application Activity (Zombie/Idle Detection)",
+      "description": "Is the workload actively used? AWS Prescriptive Guidance defines zombie workloads as CPU/memory below 5% for 90 days with no inbound connections. Idle workloads are 5-20% utilisation for 90 days. Both are Retire candidates. Source: AWS MAP guidance.",
+      "weight": 8,
+      "direction": "higher-is-better",
+      "workloadAttribute": "cpuUtilisation90DayAvgPct",
+      "bands": [
+        { "max": 5,   "score": 5,   "label": "Zombie — CPU/memory < 5% for 90 days. Strong Retire candidate." },
+        { "max": 20,  "score": 25,  "label": "Idle — CPU/memory 5-20% for 90 days. Evaluate for Retire." },
+        { "max": 50,  "score": 70,  "label": "Normal utilisation — active workload" },
+        { "max": 80,  "score": 90,  "label": "High utilisation — strong active workload" },
+        { "max": 999, "score": 80,  "label": "Very high utilisation — may need rightsizing" }
+      ]
+    },
+    {
+      "id": "CRIT-012",
+      "name": "Architecture Coupling (Code Anti-Patterns)",
+      "description": "Presence of code and architecture anti-patterns that complicate migration: hardcoded IPs, local filesystem dependencies, COM/DCOM, Windows Registry coupling. More anti-patterns = lower score. Source: AWS, Azure CAF, IBM, DXC, Uptime Institute 2025 (38% of failures cite undiscovered dependency conflicts).",
+      "weight": 9,
+      "direction": "higher-is-better",
+      "workloadAttribute": "architectureAntiPatternCount",
+      "bands": [
+        { "max": 0,  "score": 100, "label": "No anti-patterns detected — clean architecture" },
+        { "max": 1,  "score": 75,  "label": "1 anti-pattern — manageable with pre-migration remediation" },
+        { "max": 2,  "score": 50,  "label": "2 anti-patterns — significant pre-migration work required" },
+        { "max": 3,  "score": 25,  "label": "3 anti-patterns — high remediation effort before migration" },
+        { "max": 999,"score": 10,  "label": "4+ anti-patterns — defer or consider Retain/Replatform with major remediation" }
+      ]
+    },
+    {
+      "id": "CRIT-013",
+      "name": "Hardware Independence",
+      "description": "Does the workload require physical hardware (dongles, FPGAs, specialised NICs, proprietary storage)? Hardware dependencies are a hard migration blocker for standard IaaS. Source: Gartner, IBM Rapid Assessment, all cloud providers.",
+      "weight": 10,
+      "direction": "higher-is-better",
+      "workloadAttribute": "hasPhysicalHardwareDependency",
+      "notes": "Boolean: false=100 (no hardware dep, good candidate), true=0 (hard blocker — cannot migrate to standard IaaS)"
+    },
+    {
+      "id": "CRIT-014",
+      "name": "Latency Requirements",
+      "description": "What are the application's latency SLA requirements? Sub-millisecond latency workloads (HFT, industrial control, SCADA) cannot tolerate cloud network overhead and should be Retained. Source: Google Cloud, IBM, DXC.",
+      "weight": 8,
+      "direction": "higher-is-better",
+      "workloadAttribute": "latencyRequirementMs",
+      "bands": [
+        { "max": 1,    "score": 0,   "label": "Sub-millisecond — hard blocker, cannot migrate to standard cloud" },
+        { "max": 10,   "score": 20,  "label": "< 10ms — very tight; dedicated interconnect required" },
+        { "max": 50,   "score": 55,  "label": "< 50ms — manageable with cloud Direct Connect / ExpressRoute" },
+        { "max": 200,  "score": 80,  "label": "< 200ms — standard cloud latency acceptable" },
+        { "max": 99999,"score": 100, "label": "No strict latency requirement — cloud suitable" }
+      ]
+    },
+    {
+      "id": "CRIT-015",
+      "name": "Mainframe / Non-x86 Platform Risk",
+      "description": "Is the workload running on a mainframe, AS/400, or other non-x86 platform? These require specialist tooling, extended timelines, and significantly higher effort than standard migrations. Source: IBM, BMC, TCS, DXC, mLogica.",
+      "weight": 8,
+      "direction": "higher-is-better",
+      "workloadAttribute": "isMainframe",
+      "notes": "Boolean: false=80 (not mainframe), true=10 (mainframe — requires specialist assessment, separate programme track)"
+    },
+    {
+      "id": "CRIT-016",
+      "name": "Cloud Licensing Rights Confirmed",
+      "description": "Has the licensing team confirmed that all software licences permit cloud deployment? Some perpetual licences prohibit cloud hosting or require significant uplift. Source: Azure CAF, AWS MAP, Gartner.",
+      "weight": 7,
+      "direction": "higher-is-better",
+      "workloadAttribute": "cloudLicensingConfirmed",
+      "notes": "Boolean: true=90 (licensing confirmed), false=20 (unconfirmed — do not migrate until resolved)"
     }
   ]
 }

@@ -91,6 +91,10 @@
     {
       "name": "generate_assessment_diagram",
       "description": "Assess a workload and generate a draw.io migration diagram in one step"
+    },
+    {
+      "name": "identify_red_flags",
+      "description": "Triage a workload for migration red flags (BLOCKER/HIGH/MEDIUM/WARNING) using AWS MAP, Azure CAF, GCP, Gartner, IBM, DXC, TCS, BMC criteria. Returns overall migration verdict."
     }
   ],
   "compatibility": {

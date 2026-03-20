@@ -203,6 +203,12 @@ function scoreStrategy(
       if ((w.ageYears ?? 0) > 15) score += 20;
       if ((w.userCount ?? 999) < 10) score += 20;
       if ((w.annualCostUsd ?? 0) > 100000 && (w.businessCriticality ?? 3) <= 2) score += 20;
+      // Zombie/idle signals (AWS MAP — CPU <5% + no inbound connections = zombie candidate)
+      if (w.cpuUtilisation90DayAvgPct !== undefined && w.cpuUtilisation90DayAvgPct < 5 && w.hasInboundConnections90Day === false) {
+        score += 60; // zombie — strong Retire signal
+      } else if (w.cpuUtilisation90DayAvgPct !== undefined && w.cpuUtilisation90DayAvgPct < 20 && w.hasInboundConnections90Day === false) {
+        score += 30; // idle with no connections
+      }
       break;
 
     case "Retain":
@@ -210,6 +216,11 @@ function scoreStrategy(
       if ((w.businessCriticality ?? 3) >= 5) score += 30;
       if ((w.dependencyCount ?? 0) > 20) score += 20;
       if (candidateScore < 30) score += 30;
+      // Hard blockers that make cloud migration infeasible → Retain
+      if (w.hasPhysicalHardwareDependency === true) score += 50;
+      if (w.latencyRequirementMs !== undefined && w.latencyRequirementMs < 1) score += 50;
+      if (w.isMainframe === true) score += 20; // mainframe → Retain pending specialist assessment
+      if (w.cloudLicensingConfirmed === false) score += 20;
       break;
 
     case "Repurchase":
@@ -280,10 +291,16 @@ function buildRationale(w: WorkloadInput, strategy: MigrationStrategy): string[]
       break;
     case "Retire":
       reasons.push("Application shows low utilisation and/or business value — decommission is the most cost-effective path.");
+      if (w.cpuUtilisation90DayAvgPct !== undefined && w.cpuUtilisation90DayAvgPct < 5 && w.hasInboundConnections90Day === false) {
+        reasons.push(`Zombie workload: ${w.cpuUtilisation90DayAvgPct}% CPU utilisation with no inbound connections over 90 days (AWS MAP zombie threshold).`);
+      }
       break;
     case "Retain":
       reasons.push("Migration risk or complexity is disproportionate to business benefit at this time — defer to a future wave.");
       if ((w.businessCriticality ?? 3) >= 5) reasons.push("Mission-critical application — risk tolerance is insufficient for current wave.");
+      if (w.hasPhysicalHardwareDependency === true) reasons.push("Physical hardware dependency detected — cannot migrate to standard IaaS.");
+      if (w.latencyRequirementMs !== undefined && w.latencyRequirementMs < 1) reasons.push(`Sub-millisecond latency requirement (${w.latencyRequirementMs}ms) incompatible with cloud network topology.`);
+      if (w.cloudLicensingConfirmed === false) reasons.push("Cloud licensing rights not confirmed — do not migrate until licensing resolved.");
       break;
     case "Relocate":
       reasons.push("VMware-based infrastructure can be relocated using cloud VMware solutions with minimal operational change.");
