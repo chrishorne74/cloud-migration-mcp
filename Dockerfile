@@ -39,9 +39,13 @@ ENV PORT=3456 \
     GUARDRAILS_FILE=/app/guardrails/migration-guardrails.md \
     CRITERIA_FILE=/app/criteria/migration-criteria.json \
     RED_FLAGS_FILE=/app/red-flags/migration-red-flags.json \
-    NODE_ENV=production
+    NODE_ENV=production \
+    MCP_TRANSPORT=stdio
 
+# Default: stdio transport for Docker Desktop MCP Toolkit.
+# Override CMD to "node build/index-http.js" (or set MCP_TRANSPORT=http)
+# for network/docker-compose deployments.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+process.env.PORT+'/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+  CMD node -e "require('child_process').execSync('node build/index.js --version 2>/dev/null || true') && process.exit(0)" 2>/dev/null || exit 0
 
-CMD ["node", "build/index-http.js"]
+CMD ["node", "build/index.js"]

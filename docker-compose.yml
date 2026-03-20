@@ -7,8 +7,11 @@ services:
     container_name: cloud-migration-mcp
     ports:
       - "3456:3456"
+    # Override CMD to use HTTP transport (image defaults to stdio for Docker Desktop)
+    command: ["node", "build/index-http.js"]
     environment:
       PORT: "3456"
+      MCP_TRANSPORT: http
       # Override data file paths to volume-mounted locations
       GUARDRAILS_FILE: /data/guardrails/migration-guardrails.md
       CRITERIA_FILE: /data/criteria/migration-criteria.json
